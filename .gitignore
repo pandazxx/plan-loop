@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# uv
+.uv/
+
+# env
+.env
+
+# nix
+.direnv/
+
+# training material / trajectories (not source-controlled by default)
+data/
+runs/
+
+# editors
+.vscode/
+.idea/
