@@ -20,34 +20,34 @@ not an incidental dependency.
 - `Environment`: executes bash actions (local, Docker, Podman, ...).
   Only relevant when a role actually needs to touch a filesystem/repo.
 
-## Open design questions
+## Milestone 1: bare-minimum loop
 
-The mapping between the README's 10-step workflow and mini-swe-agent's
-`Agent`/`Model`/`Environment` triad — specifically how the swe-llm
-prompt-authoring step (steps 2 and 6) is implemented, and how the
-work-llm execution step (step 10) is scoped — is **not yet decided**.
-An earlier draft of this document assumed a full `DefaultAgent` for
-swe-llm; that assumption was flagged as wrong and the detailed design
-is deferred. Record the actual decision in `docs/decisions/` once made.
+Resolved in
+[`docs/decisions/0001-milestone-1-work-llm-as-bash.md`](docs/decisions/0001-milestone-1-work-llm-as-bash.md):
+`work_llm` is not an agent at all — it's the bash command `codex exec`,
+run by `swe_agent` like any other shell action. `swe_agent` is a stock
+mini-swe-agent `DefaultAgent` (real `Model` + real local `Environment`);
+the only project-specific piece is its `system_template`, which forbids
+it from doing the work itself and requires delegating via `codex exec`.
+Each user task is one independent `swe_agent.run(task)` call — no
+cross-task memory yet.
 
-What is settled:
-
-- Different models per role, configured via env vars (done — see
-  `.env.example`).
-- mini-swe-agent's own trajectory files (`output_path`,
-  `serialize()`/`save()`) are the natural basis for the "training
-  material" this project is meant to produce, tagged with role and
-  prompt-template version. Whether `storage.py` wraps that directly or
-  needs its own format is part of the deferred design.
+This covers a simplified variant of the README's workflow (no
+plan/amend/accept cycle — see issue #2). The full 10-step workflow,
+cross-task memory, and structured training-data capture beyond
+mini-swe-agent's own trajectory files remain open for a later milestone.
 
 ## Repo layout
 
 ```
 src/plan_loop/
-├── configs/     # mini-swe-agent AgentConfig YAML overrides, per role
-├── prompts/     # plan_task_prompt / plan_amend_prompt templates (versioned)
-├── agents/      # plan-loop-specific Agent subclasses/wrappers
-├── models.py    # Task, ActionPlan, Feedback — mirrors README's terminology table
-├── loop.py      # the 10-step state machine (placeholder)
-└── cli.py       # entry point (placeholder)
+├── configs/
+│   └── swe_agent.yaml   # swe_agent's AgentConfig: system/instance templates, limits
+├── agents/
+│   └── swe_agent.py     # build_swe_agent(): wires Model + local Environment + DefaultAgent
+├── prompts/             # plan_task_prompt / plan_amend_prompt — future milestones
+├── models.py            # Task, ActionPlan, Feedback — mirrors README's terminology table
+├── config.py            # env var loading (PLAN_LOOP_SWE_LLM_MODEL / PLAN_LOOP_WORK_LLM_MODEL)
+├── loop.py              # the milestone-1 REPL loop
+└── cli.py               # entry point
 ```
