@@ -70,3 +70,10 @@ This starts a REPL: type a task, _swe-llm_ delegates it to _work-llm_
 or an empty line to stop. Each task is independent — there's no memory
 across tasks yet.
 
+### Diagnosing a failed task
+
+Every task writes a full trajectory (every message, cost, exit status)
+to `runs/<NNNN>.json` — the path is printed after each task. For
+verbose real-time logging on top of that (Python DEBUG output plus
+litellm's request/response logging), set `PLAN_LOOP_DEBUG=1` in `.env`.
+
