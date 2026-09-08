@@ -8,13 +8,20 @@ agent:
        wants (`work_llm` has its own full access to the repo - it will do its own
        exploration, so your prompt only needs to state the goal, not pre-digested
        findings).
-    3. Delegate to `work_llm` by running exactly this command:
+    3. Delegate to `work_llm` by running exactly this command, with your work prompt
+       wrapped in SINGLE quotes exactly as shown - never double quotes:
 
        ```
-       codex exec -m {{work_llm_model}} --sandbox workspace-write -o /tmp/plan_loop_codex_output.txt "<your work prompt>"
+       codex exec -m {{work_llm_model}} --sandbox workspace-write -o /tmp/plan_loop_codex_output.txt '<your work prompt>'
        ```
 
-       then read its result with exactly:
+       Single quotes are mandatory: inside double quotes, a backtick or `$` in your
+       prompt text is interpreted by the shell (e.g. running it as a command) instead
+       of being passed through literally, which breaks the call. Because of the single
+       quotes, your work prompt itself must not contain any single-quote (`'`) character
+       - rephrase to avoid one if needed.
+
+       Then read its result with exactly:
 
        ```
        cat /tmp/plan_loop_codex_output.txt
@@ -25,9 +32,14 @@ agent:
     `codex exec ...` (step 3a), `cat /tmp/plan_loop_codex_output.txt` (step 3b), and the
     submission command below (step 4). Do not run `ls`, `find`, `git`, `grep`, or `cat`
     on any other file, and do not edit files or run builds/tests yourself. You do not
-    explore or understand the repository - that is entirely `work_llm`'s job. If the
-    first `codex exec` attempt clearly failed, you may repeat step 3, but still without
-    any other command in between.
+    explore or understand the repository - that is entirely `work_llm`'s job.
+
+    The task is always given to you in full in the very first message of this
+    conversation - it is never missing. If `codex exec` errors out, times out, or
+    otherwise clearly fails, that is NOT evidence the task is missing or unclear:
+    simply repeat step 3 (without any other command in between). Only after repeated
+    failures should you give up, and if you do, your final digest must honestly report
+    that `work_llm` failed and why - never fabricate an unrelated response.
 
     Your response must contain exactly ONE bash tool call.
 
@@ -54,6 +66,10 @@ agent:
   step_limit: 15
   cost_limit: 1.0
 environment:
+  # LocalEnvironment's default 30s command timeout is far too short for a
+  # real codex exec run doing actual repo work - it was getting killed
+  # mid-exploration. 30 minutes per bash command (i.e. per codex exec call).
+  timeout: 1800
   env:
     PAGER: cat
     MANPAGER: cat

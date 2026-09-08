@@ -23,6 +23,24 @@ def test_system_template_forces_codex_exec_delegation():
     assert "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT" in rendered
 
 
+def test_system_template_requires_single_quoted_prompt():
+    # Double quotes let the shell interpret backticks/$ inside the work
+    # prompt (e.g. markdown like `structure.md` triggers command
+    # substitution) instead of passing it through literally.
+    agent = build_swe_agent("test-model")
+    agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}
+    rendered = agent._render_template(agent.config.system_template)
+    assert "'<your work prompt>'" in rendered
+    assert '"<your work prompt>"' not in rendered
+
+
+def test_environment_timeout_is_generous():
+    # A real codex exec run doing repo work can take minutes; the
+    # LocalEnvironment default of 30s kills it mid-exploration.
+    agent = build_swe_agent("test-model")
+    assert agent.env.config.timeout >= 600
+
+
 def test_system_template_forbids_repo_exploration():
     agent = build_swe_agent("test-model")
     agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}
