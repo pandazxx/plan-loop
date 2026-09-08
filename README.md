@@ -30,4 +30,43 @@ Terminologies are very important for communication and understanding of this pro
 9. _swe_ tag the approved _action-plan_ as _accepted_
 10. _swe_ send the approved _action-plan_ to _work-llm_ to fulfill the task
 
+## Usage (Milestone 1)
+
+Milestone 1 is a bare-minimum slice of the workflow above: no
+_action-plan_ review/accept cycle yet, just one round-trip per _task_.
+_work-llm_ is the `codex` CLI, invoked directly by _swe-llm_ as a shell
+command. See [ARCHITECTURE.md](ARCHITECTURE.md) and
+[docs/decisions/0001-milestone-1-work-llm-as-bash.md](docs/decisions/0001-milestone-1-work-llm-as-bash.md)
+for the design.
+
+### Prerequisites
+
+- `uv` and `just` (a `flake.nix` devshell provides both, or install
+  separately)
+- The [`codex` CLI](https://github.com/openai/codex), installed and
+  authenticated (`just doctor` checks it's on `PATH`)
+- An API key for whichever model you pick as _swe-llm_
+
+### Setup
+
+```sh
+just install
+cp .env.example .env
+# edit .env:
+#   PLAN_LOOP_SWE_LLM_MODEL - a litellm model string, e.g. anthropic/claude-opus-4-8
+#   PLAN_LOOP_WORK_LLM_MODEL - a model id for `codex exec -m`, e.g. gpt-5-codex
+#   plus the provider API key PLAN_LOOP_SWE_LLM_MODEL needs (e.g. ANTHROPIC_API_KEY)
+just doctor
+```
+
+### Run
+
+```sh
+just run
+```
+
+This starts a REPL: type a task, _swe-llm_ delegates it to _work-llm_
+(`codex exec`) and prints a digest of the result. Type `exit`, `quit`,
+or an empty line to stop. Each task is independent — there's no memory
+across tasks yet.
 
