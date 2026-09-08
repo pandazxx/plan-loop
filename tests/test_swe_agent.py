@@ -8,6 +8,13 @@ def test_build_swe_agent_wires_a_default_agent():
     assert isinstance(agent, DefaultAgent)
 
 
+def test_cost_tracking_ignores_unregistered_model_errors():
+    # Otherwise unregistered/local models (e.g. ollama_chat/...) hard-fail
+    # every call, since litellm has no pricing data for them.
+    agent = build_swe_agent("test-model")
+    assert agent.model.config.cost_tracking == "ignore_errors"
+
+
 def test_system_template_forces_codex_exec_delegation():
     agent = build_swe_agent("test-model")
     agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}

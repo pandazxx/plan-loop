@@ -48,3 +48,8 @@ environment:
     PAGER: cat
     MANPAGER: cat
     LESS: -R
+model:
+  # litellm has no registered pricing for unregistered/local models (e.g. via
+  # ollama_chat/...), which otherwise makes mini-swe-agent hard-fail every
+  # call. Missing cost data isn't fatal for us - just don't crash on it.
+  cost_tracking: ignore_errors
