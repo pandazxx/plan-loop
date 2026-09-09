@@ -1,0 +1,75 @@
+from minisweagent.agents.default import DefaultAgent
+
+from plan_loop.agents.swe_agent import build_swe_agent
+
+
+def test_build_swe_agent_wires_a_default_agent():
+    agent = build_swe_agent("test-model")
+    assert isinstance(agent, DefaultAgent)
+
+
+def test_cost_tracking_ignores_unregistered_model_errors():
+    # Otherwise unregistered/local models (e.g. ollama_chat/...) hard-fail
+    # every call, since litellm has no pricing data for them.
+    agent = build_swe_agent("test-model")
+    assert agent.model.config.cost_tracking == "ignore_errors"
+
+
+def test_system_template_forces_codex_exec_delegation():
+    agent = build_swe_agent("test-model")
+    agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}
+    rendered = agent._render_template(agent.config.system_template)
+    assert "codex exec -m gpt-5-codex" in rendered
+    assert "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT" in rendered
+
+
+def test_system_template_requires_single_quoted_prompt():
+    # Double quotes let the shell interpret backticks/$ inside the work
+    # prompt (e.g. markdown like `structure.md` triggers command
+    # substitution) instead of passing it through literally.
+    agent = build_swe_agent("test-model")
+    agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}
+    rendered = agent._render_template(agent.config.system_template)
+    assert "'<your work prompt>'" in rendered
+    assert '"<your work prompt>"' not in rendered
+
+
+def test_environment_timeout_is_generous():
+    # A real codex exec run doing repo work can take minutes; the
+    # LocalEnvironment default of 30s kills it mid-exploration.
+    agent = build_swe_agent("test-model")
+    assert agent.env.config.timeout >= 600
+
+
+def test_system_template_silences_codex_own_output():
+    # Without this, work_llm's own verbose progress narration (tens of KB)
+    # floods the observation instead of the clean result from -o, which
+    # has been observed to derail the model into losing track of state.
+    agent = build_swe_agent("test-model")
+    agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}
+    rendered = agent._render_template(agent.config.system_template)
+    assert ">/tmp/plan_loop_codex_progress.log 2>&1" in rendered
+
+
+def test_system_template_forbids_a_second_exec_before_reading_the_first():
+    # A second codex exec overwrites the -o file, permanently destroying
+    # an already-successful first result before it's ever read.
+    agent = build_swe_agent("test-model")
+    agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}
+    rendered = agent._render_template(agent.config.system_template)
+    assert "Never run `codex exec` a second time until you have read the output file" in rendered
+
+
+def test_system_template_forbids_repo_exploration():
+    agent = build_swe_agent("test-model")
+    agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}
+    rendered = agent._render_template(agent.config.system_template)
+    assert "read-only inspection" not in rendered
+    assert "EXACTLY THREE allowed bash commands" in rendered
+
+
+def test_instance_template_renders_the_task():
+    agent = build_swe_agent("test-model")
+    agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}
+    rendered = agent._render_template(agent.config.instance_template)
+    assert "do the thing" in rendered
