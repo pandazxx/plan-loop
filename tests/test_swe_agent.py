@@ -41,6 +41,25 @@ def test_environment_timeout_is_generous():
     assert agent.env.config.timeout >= 600
 
 
+def test_system_template_silences_codex_own_output():
+    # Without this, work_llm's own verbose progress narration (tens of KB)
+    # floods the observation instead of the clean result from -o, which
+    # has been observed to derail the model into losing track of state.
+    agent = build_swe_agent("test-model")
+    agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}
+    rendered = agent._render_template(agent.config.system_template)
+    assert ">/tmp/plan_loop_codex_progress.log 2>&1" in rendered
+
+
+def test_system_template_forbids_a_second_exec_before_reading_the_first():
+    # A second codex exec overwrites the -o file, permanently destroying
+    # an already-successful first result before it's ever read.
+    agent = build_swe_agent("test-model")
+    agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}
+    rendered = agent._render_template(agent.config.system_template)
+    assert "Never run `codex exec` a second time until you have read the output file" in rendered
+
+
 def test_system_template_forbids_repo_exploration():
     agent = build_swe_agent("test-model")
     agent.extra_template_vars |= {"task": "do the thing", "work_llm_model": "gpt-5-codex"}

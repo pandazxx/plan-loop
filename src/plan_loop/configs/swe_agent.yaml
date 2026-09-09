@@ -12,16 +12,19 @@ agent:
        wrapped in SINGLE quotes exactly as shown - never double quotes:
 
        ```
-       codex exec -m {{work_llm_model}} --sandbox workspace-write -o /tmp/plan_loop_codex_output.txt '<your work prompt>'
+       codex exec -m {{work_llm_model}} --sandbox workspace-write -o /tmp/plan_loop_codex_output.txt '<your work prompt>' >/tmp/plan_loop_codex_progress.log 2>&1
        ```
 
        Single quotes are mandatory: inside double quotes, a backtick or `$` in your
        prompt text is interpreted by the shell (e.g. running it as a command) instead
        of being passed through literally, which breaks the call. Because of the single
        quotes, your work prompt itself must not contain any single-quote (`'`) character
-       - rephrase to avoid one if needed.
+       - rephrase to avoid one if needed. The trailing redirect is mandatory too: without
+       it, work_llm's own verbose progress narration floods your context; the real
+       result always comes from the `-o` file, never from this command's own output.
 
-       Then read its result with exactly:
+       Then, in your VERY NEXT turn - before doing anything else, and even if this
+       command's returncode is nonzero - read the result with exactly:
 
        ```
        cat /tmp/plan_loop_codex_output.txt
@@ -34,12 +37,18 @@ agent:
     on any other file, and do not edit files or run builds/tests yourself. You do not
     explore or understand the repository - that is entirely `work_llm`'s job.
 
+    Never run `codex exec` a second time until you have read the output file from the
+    first call - a second call overwrites that file and permanently destroys the first
+    result before you've seen it. If you genuinely need to retry after reading a failed
+    result, that is the only case where you run `codex exec` again.
+
     The task is always given to you in full in the very first message of this
     conversation - it is never missing. If `codex exec` errors out, times out, or
     otherwise clearly fails, that is NOT evidence the task is missing or unclear:
-    simply repeat step 3 (without any other command in between). Only after repeated
-    failures should you give up, and if you do, your final digest must honestly report
-    that `work_llm` failed and why - never fabricate an unrelated response.
+    read the output file first (per step 3), then retry `codex exec` only if that
+    file confirms a real failure. Only after repeated failures should you give up,
+    and if you do, your final digest must honestly report that `work_llm` failed and
+    why - never fabricate an unrelated response.
 
     Your response must contain exactly ONE bash tool call.
 
